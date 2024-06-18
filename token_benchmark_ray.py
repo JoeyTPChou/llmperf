@@ -36,6 +36,7 @@ def get_token_throughput_latencies(
     max_num_completed_requests: int = 500,
     test_timeout_s=90,
     llm_api="openai",
+    additional_request_body: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """Get the token throughput and latencies for the given model.
 
@@ -51,6 +52,8 @@ def get_token_throughput_latencies(
             this to increase the amount of load and vice versa.
         test_timeout_s: The amount of time to run the test for before reporting results.
         llm_api: The name of the llm api to use. Either "openai" or "litellm".
+        additional_request_body: Additional request body to send with the request.
+            For more information see the LLM APIs documentation for the completions
 
     Returns:
         A summary of the performance metrics collected across all completed requests
@@ -91,11 +94,13 @@ def get_token_throughput_latencies(
 
         default_sampling_params = {"max_tokens": num_output_tokens}
         default_sampling_params.update(additional_sampling_params)
+        print(default_sampling_params)
         request_config = RequestConfig(
             model=model,
             prompt=prompt,
             sampling_params=default_sampling_params,
             llm_api=llm_api,
+            additional_request_body=additional_request_body,
         )
         req_launcher.launch_requests(request_config)
         # Retrieving results less frequently allows for more concurrent requests
@@ -270,6 +275,7 @@ def run_token_benchmark(
     additional_sampling_params: str,
     results_dir: str,
     user_metadata: Dict[str, Any],
+    additional_request_body: str,
 ):
     """
     Args:
@@ -287,6 +293,8 @@ def run_token_benchmark(
             For more information see the LLM APIs documentation for the completions.
         results_dir: The directory to save the results to.
         user_metadata: Additional metadata to include in the results.
+        additional_request_body: Additional request body to send with the request.
+            For more information see the LLM APIs documentation for the completions
     """
     if mean_input_tokens < 40:
         print(
@@ -305,6 +313,7 @@ def run_token_benchmark(
         stddev_output_tokens=stddev_output_tokens,
         num_concurrent_requests=num_concurrent_requests,
         additional_sampling_params=json.loads(additional_sampling_params),
+        additional_request_body=json.loads(additional_request_body),
     )
 
     if results_dir:
@@ -440,6 +449,15 @@ args.add_argument(
         "name=foo,bar=1. These will be added to the metadata field of the results. "
     ),
 )
+args.add_argument(
+    "--additional-request-body",
+    type=str,
+    default="{}",
+    help=(
+        "Additional request body to send with the each request to the LLM API. "
+        "(default: %(default)s) No additional request body are sent."
+    ),
+)
 
 if __name__ == "__main__":
     env_vars = dict(os.environ)
@@ -466,4 +484,5 @@ if __name__ == "__main__":
         additional_sampling_params=args.additional_sampling_params,
         results_dir=args.results_dir,
         user_metadata=user_metadata,
+        additional_request_body=args.additional_request_body
     )
